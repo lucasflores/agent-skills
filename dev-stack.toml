@@ -1,0 +1,23 @@
+[stack]
+version = "0.1.0"
+initialized = "2026-03-24T18:56:11Z"
+last_updated = "2026-03-24T18:56:11Z"
+rollback_ref = "dev-stack/rollback/20260324T185611Z"
+mode = "greenfield"
+
+[agent]
+cli = "copilot"
+detected_at = "2026-03-24T18:56:11Z"
+path = "/usr/local/bin/gh"
+
+[modules.hooks]
+version = "0.1.0"
+installed = true
+
+[modules.speckit]
+version = "0.1.0"
+installed = true
+
+[modules.vcs_hooks]
+version = "0.1.0"
+installed = true

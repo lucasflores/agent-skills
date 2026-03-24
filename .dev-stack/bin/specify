@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+if command -v uv >/dev/null 2>&1; then
+    exec uv tool run spec-kit -- "$@"
+fi
+cat <<'EOF' 1>&2
+Spec Kit CLI requires the uv tool. Install uv from https://docs.astral.sh/uv/ then run `uv tool install spec-kit`.
+EOF
+exit 1
