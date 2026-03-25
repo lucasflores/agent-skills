@@ -1,10 +1,3 @@
 name: lucasflores/agent-skills
 version: 1.0.0
 description: Personal collection of AI agent definitions, skills, and templates.
-
-primitives:
-  agents:
-    - agents/research-assistant.agent.md
-  skills:
-    - skills/research-assistant
-    - skills/idea-to-speckit
