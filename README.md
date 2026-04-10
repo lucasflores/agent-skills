@@ -13,7 +13,9 @@ Personal collection of AI agent definitions, skills, and templates — packaged 
 ### Skills
 
 | Skill | Description |
-|-------|-------------|| [research-project-init](skills/research-project-init/SKILL.md) | Scaffold a new ML research project repo with standardized structure, MLflow tracking, and research-assistant integration. || [research-assistant](skills/research-assistant/SKILL.md) | Scientific loop workflow for automated ML experimentation with MLflow tracking and NotebookLM literature grounding. |
+|-------|--------------|
+| [research-project-init](skills/research-project-init/SKILL.md) | Scaffold a new ML research project repo with standardized structure, MLflow tracking, and research-assistant integration. |
+| [research-assistant](skills/research-assistant/SKILL.md) | Scientific loop workflow for automated ML experimentation with MLflow tracking and NotebookLM literature grounding. |
 | [idea-to-speckit](skills/idea-to-speckit/SKILL.md) | Transform fuzzy ideas into well-crafted prompts for spec-driven development using Spec Kit. |
 
 ## Installation
