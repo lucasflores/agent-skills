@@ -17,6 +17,12 @@ Personal collection of AI agent definitions, skills, and templates — packaged 
 | [research-assistant](skills/research-assistant/SKILL.md) | Scientific loop workflow for automated ML experimentation with MLflow tracking and NotebookLM literature grounding. |
 | [idea-to-speckit](skills/idea-to-speckit/SKILL.md) | Transform fuzzy ideas into well-crafted prompts for spec-driven development using Spec Kit. |
 
+### Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| [AutoSpecKit](prompts/AutoSpecKit.prompt.md) | One command to run SpecKit end-to-end. Creates constitution if missing, then ships the feature. |
+
 ## Installation
 
 ```bash
@@ -30,6 +36,8 @@ agent-skills/
 ├── apm.yml                                  # APM package manifest
 ├── agents/
 │   └── research-assistant.agent.md          # Agent definition
+├── prompts/
+│   └── AutoSpecKit.prompt.md                # SpecKit end-to-end orchestration
 ├── skills/
 │   ├── research-assistant/
 │   │   ├── SKILL.md                         # Core scientific loop skill
