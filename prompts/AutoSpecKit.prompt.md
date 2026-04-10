@@ -94,7 +94,7 @@ SpecKit commands (`/speckit.specify`, `/speckit.clarify`, `/speckit.plan`, `/spe
 
 1. **Slash command / tool call** — Invoke directly if available (e.g., `/speckit.specify`).
 2. **Read prompt file** — If no tool call, locate and read the SpecKit prompt file (`.github/prompts/`, `.github/agents/`, or `.claude/commands/`) and follow its instructions faithfully. Do NOT simplify, skip steps, or substitute your own logic.
-3. **Blocker** — If neither works, escalate via Failure Escalation Protocol. Inform user SpecKit must be installed (`autospeckit init`).
+3. **Blocker** — If neither works, escalate via Failure Escalation Protocol. Inform the user that the required SpecKit command files are not available in this project and that SpecKit must be installed or its prompts/agents added in the expected locations before continuing.
 
 ## Mandatory SpecKit Phases (Never Skip)
 
@@ -230,6 +230,7 @@ Ask once:
 It tells SpecKit about your project so every plan, task, and code change matches how your project works.
 
 Paste your constitution below (bullets are fine). Include what applies: tech stack, code style, testing, build tools, constraints, domain context.
+Do not include any secrets or sensitive values (API keys, tokens, passwords, connection strings); describe them generically instead (for example, env var names only).
 
 Example:
 ```
@@ -251,9 +252,9 @@ Wait for the user to respond. Once provided, run `/speckit.constitution` with th
 
 Run:
 
-/speckit.specify
+/speckit.specify <spec text>
 
-Use the provided spec verbatim (excluding any invocation options).
+Use the `<spec text>` captured from `/AutoSpecKit` verbatim as the argument (excluding any invocation options).
 
 Wait for successful completion before proceeding.
 
@@ -527,6 +528,8 @@ After the Final Completion Summary (or a BLOCKED escalation), write a JSON audit
 **Path:** `.autospeckit/runs/<timestamp>.json`
 
 Where `<timestamp>` is ISO 8601 format: `YYYY-MM-DDTHH-MM-SS` (use hyphens instead of colons for filesystem safety).
+
+> **Note:** Add `.autospeckit/` to your project's `.gitignore` to avoid committing per-run audit logs.
 
 **Schema:**
 
