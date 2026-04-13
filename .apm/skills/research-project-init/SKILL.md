@@ -298,3 +298,10 @@ After creation, tell the user:
 > 2. Add your ML framework dependencies to `pyproject.toml` and run `uv sync`
 > 3. Create your first experiment script in `experiments/`
 > 4. Invoke the **Research Assistant** to bootstrap `.research-assistant/` and start the scientific loop
+
+## What This Skill Does NOT Do
+
+- Does **not** create `.research-assistant/` — the Research Assistant agent does that on first invocation
+- Does **not** install dev-stack — that's a separate concern
+- Does **not** create notebooks/, docs/, or data/ — add those per-project as needed
+- Does **not** guess at framework-specific parameters
