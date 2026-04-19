@@ -29,6 +29,7 @@ Use the **exact templates** below. Substitute only these variables:
 | `{{PACKAGE_NAME}}` | Question 1, replace `-` with `_` | `causal_discovery_experiments` |
 | `{{EXTRA_DEPS}}` | Question 3, as TOML list entries | `"torch>=2.0",\n    "scikit-learn",` |
 | `{{PYTHON_VERSION}}` | Question 4 | `3.12` |
+| `{{PYTHON_VERSION_NODOT}}` | Question 4, remove `.` | `312` |
 | `{{AUTHOR_NAME}}` | Question 5 | `Lucas Flores` |
 | `{{AUTHOR_EMAIL}}` | Question 5 | `user@example.com` |
 
@@ -75,7 +76,7 @@ build-backend = "hatchling.build"
 packages = ["src/{{PACKAGE_NAME}}"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py{{PYTHON_VERSION_NODOT}}"
 line-length = 88
 
 [tool.ruff.lint]

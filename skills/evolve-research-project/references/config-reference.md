@@ -95,6 +95,8 @@ All nested configs are optional. Omit or set to `null` to disable.
 
 #### `stopping` — Additional stopping criteria
 
+`stopping.max_generations` overrides the top-level `max_generations` when the `stopping` block is present. If `null`, the top-level value is used.
+
 ```json
 {
   "stopping": {
