@@ -32,6 +32,7 @@ If you find yourself writing a class named `UnifiedConfig`, `TrackingConfig`, or
 `Fitness` is a frozen dataclass wrapping a NumPy array. **Do not** use `Fitness(value=1.0)` — that field doesn't exist.
 
 ```python
+import numpy as np
 from evolve.core.types import Fitness
 
 # CORRECT — single-objective
@@ -49,6 +50,8 @@ f = Fitness(value=1.0)
 No need to wrap your fitness function in `FunctionEvaluator` — `create_engine()` does it automatically:
 
 ```python
+import numpy as np
+
 def sphere(genes):
     return float(np.sum(genes**2))
 
@@ -273,6 +276,8 @@ If your experiment needs extra parameters beyond `UnifiedConfig`, see [reference
 Only create a custom callback if you need to log **experiment-specific** params. The framework's `TrackingCallback` (built automatically by `create_engine()`) handles the full MLflow lifecycle and standard evolution metrics.
 
 ```python
+import mlflow
+
 class ExperimentParamsCallback:
     def __init__(self, params: dict):
         self._params = params
@@ -280,10 +285,7 @@ class ExperimentParamsCallback:
     def on_run_start(self, config):
         mlflow.log_params({k: str(v) for k, v in self._params.items()})
 
-    # All four methods must exist — engine checks with hasattr
-    def on_generation_start(self, generation, population): pass
-    def on_generation_end(self, generation, population, metrics): pass
-    def on_run_end(self, population, reason): pass
+    # Only implement the methods you need — engine checks with hasattr
 ```
 
 ### Step 4: Write experiment script

@@ -9,7 +9,7 @@ Frozen dataclass. All evolution parameters for a single experiment. Native JSON 
 ### Construction
 
 ```python
-from evolve.config import UnifiedConfig
+from evolve.config import UnifiedConfig, TrackingConfig
 
 # From JSON file (preferred for experiments)
 uc = UnifiedConfig.from_file("configs/experiment.json")
@@ -298,6 +298,7 @@ result.stop_reason     # str — why evolution stopped
 ## Fitness
 
 ```python
+import numpy as np
 from evolve.core.types import Fitness
 
 # Single-objective (preferred)
