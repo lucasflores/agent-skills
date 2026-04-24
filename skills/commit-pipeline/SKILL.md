@@ -308,17 +308,21 @@ git fetch origin
 git rebase origin/main
 ```
 
-If git reports divergent branches (local commits that are now duplicated by the merge commit), `rebase` will detect and skip the already-applied commits — this is expected and safe. Confirm with:
+If local `main` has commits that were merged (common with merge-commit or squash workflows), rebase may skip them based on patch-id matching — usually safe, but verify the result. If rebase stops with conflicts, resolve them normally (`git add <file>`, `git rebase --continue`), then re-run tests to confirm nothing broke.
+
+Confirm HEAD is in sync with origin:
 
 ```bash
-git log --oneline -5   # HEAD should match origin/main
-git status             # should read "up to date"
+git log --oneline -3
+git rev-parse HEAD origin/main   # both lines should print the same hash
 ```
 
-If the feature branch is no longer needed:
+If the feature branch is no longer needed, clean up locally and remotely:
 
 ```bash
-git branch -d <feature-branch>
+git branch -d <feature-branch>                  # delete local branch
+git push origin --delete <feature-branch>        # delete remote branch
+                                                 # (skip if GitHub auto-deleted on merge)
 ```
 
 ---
@@ -342,8 +346,8 @@ git branch -d <feature-branch>
 [ ] Copilot review complete
 [ ] All valid review suggestions implemented and committed
 [ ] Constitution validated (if exists)
-[ ] Local main rebased on origin/main and up to date
-[ ] Feature branch deleted (if no longer needed)
+[ ] Local main synced with origin/main (HEAD hashes match)
+[ ] Feature branch deleted locally and remotely (if no longer needed)
 ```
 
 ---
