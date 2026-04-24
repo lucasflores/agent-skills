@@ -46,7 +46,7 @@ Key env vars (export before running any component):
 
 ```bash
 export INDICO_CONFIG='/Users/lucasflores/dev2/indico/src/indico/indico.conf'
-export CHAINLIT_AUTH_SECRET='395e54f529e6d9d14467b21d1d5ed738fcaaf36ddf23fe43a8d8f89f9895894f'
+export CHAINLIT_AUTH_SECRET='<set-from-environment-or-.env>'  # do not commit a real secret
 ```
 
 ## Components
@@ -82,7 +82,7 @@ Uses its **own venv** — not the Indico env.
 cd ~/dev2/indico/plugins_lucas/indico_assistant_plugin/chainlit_app
 source .venv/bin/activate
 export INDICO_CONFIG='/Users/lucasflores/dev2/indico/src/indico/indico.conf'
-export CHAINLIT_AUTH_SECRET='395e54f529e6d9d14467b21d1d5ed738fcaaf36ddf23fe43a8d8f89f9895894f'
+export CHAINLIT_AUTH_SECRET='<set-from-environment-or-.env>'  # do not commit a real secret
 chainlit run app_chnlit.py --host 127.0.0.1 --port 8001 --debug
 ```
 

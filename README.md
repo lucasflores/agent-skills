@@ -19,7 +19,7 @@ Personal collection of AI agent definitions, skills, and templates — packaged 
 | [dev-stack-install](skills/dev-stack-install/SKILL.md) | Install and fully configure dev-stack in any Python repo — greenfield or brownfield. Produces a fully wired 9-stage pre-commit pipeline, all generated artifacts, and a passing first commit. |
 | [dev-stack-update](skills/dev-stack-update/SKILL.md) | Update a repo previously set up with dev-stack when new artifacts, modules, or pipeline changes land in a newer CLI version. Handles module version diffs, deprecated module migration, conflict resolution, and safe rollback. |
 | [evolve-research-project](skills/evolve-research-project/SKILL.md) | Set up a research project using evolve-framework for evolutionary optimization experiments. Handles dependency configuration, config-to-UnifiedConfig bridging, and MLflow tracking integration. |
-| [idea-to-speckit](skills/idea-to-speckit/SKILL.md) | Transform fuzzy ideas into well-crafted prompts for spec-driven development using Spec Kit. |
+| [idea-to-speckit](agents/idea-to-speckit.agent.md) | Transform fuzzy ideas into well-crafted /speckit.* prompts through autonomous research and guided clarification. |
 | [research-assistant](skills/research-assistant/SKILL.md) | Scientific loop workflow for automated ML experimentation with MLflow tracking and NotebookLM literature grounding. |
 | [research-project-init](skills/research-project-init/SKILL.md) | Scaffold a new ML research project repo with standardized structure, MLflow tracking, and research-assistant integration. |
 
@@ -42,6 +42,7 @@ agent-skills/
 ├── apm.yml                                  # APM package manifest
 ├── agents/
 │   ├── evolve-framework-research-assistant.agent.md
+│   ├── idea-to-speckit.agent.md              # Idea → SpecKit prompts (autonomous agent)
 │   └── research-assistant.agent.md          # Agent definitions
 ├── prompts/
 │   └── AutoSpecKit.prompt.md                # SpecKit end-to-end orchestration

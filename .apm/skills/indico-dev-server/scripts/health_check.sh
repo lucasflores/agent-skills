@@ -9,8 +9,9 @@ INDICO_URL="${INDICO_URL:-http://localhost:8000}"
 CHAINLIT_URL="${CHAINLIT_URL:-http://127.0.0.1:8001}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
+FAIL_COUNT=0
 ok()   { printf "${GREEN}✓${NC} %s\n" "$1"; }
-fail() { printf "${RED}✗${NC} %s\n" "$1"; }
+fail() { printf "${RED}✗${NC} %s\n" "$1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 warn() { printf "${YELLOW}⚠${NC} %s\n" "$1"; }
 
 check_indico() {
@@ -89,3 +90,5 @@ case "$target" in
   --redis)    check_redis ;;
   *) echo "Usage: $0 [--all|--indico|--chainlit|--celery|--webpack|--postgres|--redis]"; exit 1 ;;
 esac
+
+[ "$FAIL_COUNT" -eq 0 ] || exit 1

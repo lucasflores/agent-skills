@@ -63,8 +63,8 @@ The `dev-stack update` command updates the **repo's artifacts** to match the **i
 
 ```bash
 # Identify install type via direct_url.json
-find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' 2>/dev/null \
-  | xargs cat 2>/dev/null
+find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' \
+  -exec cat {} + 2>/dev/null
 ```
 
 **Editable install** — output contains `"editable": true`. The CLI binary already reflects the live source tree at all times. There is nothing to rebuild; it is always current. Skip directly to Step 2.
@@ -271,8 +271,8 @@ This happens when the dev-stack source repo has commits that changed managed tem
 **Diagnosis:**
 ```bash
 # Find the dev-stack source path from direct_url.json
-find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' 2>/dev/null \
-  | xargs cat 2>/dev/null
+find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' \
+  -exec cat {} + 2>/dev/null
 # Note the source path from the URL field
 
 # Identify which module is unhealthy
