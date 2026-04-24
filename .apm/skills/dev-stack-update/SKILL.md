@@ -53,26 +53,41 @@ The dry-run output includes:
 - `modules_removed` — modules deprecated since last init (e.g., `speckit`)
 - `conflicts` — existing files that will need resolution
 
-> If `modules_updated` and `modules_added` are both empty and no deprecated modules are flagged, everything is already current (`status: noop`). Stop here.
+> If `modules_updated` and `modules_added` are both empty and no deprecated modules are flagged, do **not** automatically stop. First cross-check with `dev-stack --json status`. If any module is `healthy: false` despite the dry-run no-op, you have template-content drift without a version bump — proceed to the ["Status unhealthy but update is a no-op"](#status-unhealthy-but-update-is-a-no-op-template-drift) speedbump rather than stopping.
 
 ---
 
 ### Step 1 — Upgrade the dev-stack CLI itself (if needed)
 
-The `dev-stack update` command updates the **repo's artifacts** to match the **installed CLI version**. Make sure the CLI itself is current first:
+The `dev-stack update` command updates the **repo's artifacts** to match the **installed CLI version**. Before upgrading, determine how dev-stack is installed — the correct action depends on install type:
 
 ```bash
-# If installed from wheel (pre-PyPI)
-cd /path/to/dev-stack-source
+# Identify install type via direct_url.json
+find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' 2>/dev/null \
+  | xargs cat 2>/dev/null
+```
+
+**Editable install** — output contains `"editable": true`. The CLI binary already reflects the live source tree at all times. There is nothing to rebuild; it is always current. Skip directly to Step 2.
+
+**Wheel install** — output contains a `file:///.../dev_stack-*.whl` URL. A specific wheel was installed. Check if newer source commits exist and rebuild:
+
+```bash
+# The URL shows the source path — navigate to its parent directory
+cd /path/shown/in/direct_url  # e.g. /Users/you/dev-stack
+git log --oneline -5           # confirm newer commits exist
+
+# Rebuild and reinstall
 uv build
-uv tool upgrade dev-stack --reinstall-package dev-stack
-# — or —
 uv tool install --force ./dist/dev_stack-<version>-py3-none-any.whl
 
-# Once on PyPI
-uv tool upgrade dev-stack
-
 # Verify
+dev-stack --version
+```
+
+**PyPI install** — no `direct_url.json` found, or URL starts with `https://`. Upgrade normally:
+
+```bash
+uv tool upgrade dev-stack
 dev-stack --version
 ```
 
@@ -159,6 +174,8 @@ dev-stack --json pipeline run --force   # stages 1-5 must pass
 dev-stack --json pipeline run --stage infra-sync   # should report no drift
 ```
 
+> **Side effect**: Running `pipeline run --force` executes the `visualize` stage, which writes or updates `.understand-anything/` (4 files: `knowledge-graph.json`, `fingerprints.json`, `meta.json`, `summary.json`). These will appear as untracked or modified in `git status`. They should be committed — do not discard them. Stage them as part of Step 6.
+
 ---
 
 ### Step 6 — Commit the Updated Artifacts
@@ -208,12 +225,14 @@ dev-stack update   # answers "Continue anyway? [y/N]" with y
 ```
 
 ### "No modules require updates" (unexpected)
-The manifest versions already match the CLI. Either the CLI was not upgraded, or the repo is truly current.
+The manifest versions already match the CLI. Either the CLI was not upgraded, or the repo is truly current — but also cross-check whether any modules are still unhealthy.
 ```bash
 dev-stack --version        # confirm CLI version
 cat dev-stack.toml         # compare [modules.*] versions by hand
 dev-stack --dry-run update # authoritative diff
+dev-stack --json status    # cross-check: are any modules healthy: false?
 ```
+If `status` shows unhealthy modules despite the no-op, see "Status unhealthy but update is a no-op" below.
 
 ### Hook checksums still show `modified: true` after update
 A locally edited hook was skipped during conflict resolution. Force-overwrite:
@@ -245,6 +264,63 @@ dev-stack rollback             # restore pre-update state
 dev-stack update --dry-run     # confirm what will be applied
 dev-stack update               # retry from clean state
 ```
+
+### Status unhealthy but update is a no-op (template drift)
+This happens when the dev-stack source repo has commits that changed managed template files (e.g., CI workflows, hook scripts) **without bumping the module's `VERSION` constant**. The CLI sees matching versions and reports nothing to do, but the on-disk artifacts are out of date with the template.
+
+**Diagnosis:**
+```bash
+# Find the dev-stack source path from direct_url.json
+find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' 2>/dev/null \
+  | xargs cat 2>/dev/null
+# Note the source path from the URL field
+
+# Identify which module is unhealthy
+dev-stack --json status
+
+# Diff the on-disk managed file against the current source template
+# ci-workflows example:
+diff /path/to/dev-stack-source/src/dev_stack/templates/ci/dev-stack-tests.yml \
+     .github/workflows/dev-stack-tests.yml
+# hooks example:
+diff /path/to/dev-stack-source/src/dev_stack/templates/hooks/pre-commit \
+     scripts/hooks/pre-commit
+```
+
+Template locations follow the pattern `src/dev_stack/templates/<module-name>/<file>`.
+
+**Fix — copy the current template over the drifted file:**
+```bash
+# ci-workflows
+cp /path/to/dev-stack-source/src/dev_stack/templates/ci/dev-stack-tests.yml \
+   .github/workflows/dev-stack-tests.yml
+
+# hooks
+cp /path/to/dev-stack-source/src/dev_stack/templates/hooks/pre-commit \
+   scripts/hooks/pre-commit
+```
+
+After copying, verify: `dev-stack --json status` — the module should now be `healthy: true`.
+
+---
+
+### `uv_project` unhealthy — `.python-version` missing
+The `uv_project` health check requires `.python-version` to exist at the repo root. In brownfield mode, this file is gitignored but must be present on disk. `dev-stack update` does not create it automatically.
+
+```bash
+# Check the active Python version
+pyenv version-name 2>/dev/null || python3 --version
+
+# Create the file — major.minor only, not patch
+echo "3.12" > .python-version
+
+# Verify
+dev-stack --json status
+```
+
+The file is gitignored by default; re-create it once per fresh checkout.
+
+---
 
 ### Deprecated module warning keeps appearing
 The deprecated entry remains in `dev-stack.toml` with `deprecated = true`. It is safe to leave as-is — it will not be re-installed. The warning only appears when explicitly named in `--modules`.
