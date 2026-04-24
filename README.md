@@ -11,12 +11,6 @@ Personal collection of AI agent definitions, skills, and templates — packaged 
 | [research-assistant](agents/research-assistant.agent.md) | Automates ML experiments and the scientific process — hypothesis generation, literature grounding, experiment execution, and result interpretation. |
 | [evolve-framework-research-assistant](agents/evolve-framework-research-assistant.agent.md) | Specialized research assistant for evolve-framework experiments. Composes the generic research workflow with UnifiedConfig, dry_run, and evolution-specific interpretation. |
 
-### Docs
-
-| Doc | Description |
-|-----|-------------|
-| [evolve-framework-research-workflow](docs/evolve-framework-research-workflow.md) | End-to-end prompt and invocation workflow from empty directory to the first evolve-framework experiment cycle. |
-
 ### Skills
 
 | Skill | Description |
@@ -49,8 +43,6 @@ agent-skills/
 ├── agents/
 │   ├── evolve-framework-research-assistant.agent.md
 │   └── research-assistant.agent.md          # Agent definitions
-├── docs/
-│   └── evolve-framework-research-workflow.md
 ├── prompts/
 │   └── AutoSpecKit.prompt.md                # SpecKit end-to-end orchestration
 ├── skills/
