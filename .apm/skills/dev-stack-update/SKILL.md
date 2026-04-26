@@ -37,6 +37,11 @@ Before touching anything, capture a baseline:
 # Confirm dev-stack is initialized
 cat dev-stack.toml   # must exist; if absent, run dev-stack init instead
 
+# Verify the active binary is the version you expect
+dev-stack --version
+which -a dev-stack          # list all executables in PATH order
+pyenv which dev-stack       # shows which pyenv-managed binary resolves
+
 # See what the CLI considers stale
 dev-stack --json status
 
@@ -46,6 +51,10 @@ dev-stack --json hooks status
 # Preview the full update diff without writing anything
 dev-stack --dry-run update
 ```
+
+> **Pyenv shim masking**: If `which -a dev-stack` shows both `~/.pyenv/shims/dev-stack` and `~/.local/bin/dev-stack`, pyenv's shim wins because `~/.pyenv/shims` is higher in `$PATH`. This means `dev-stack --version` may report the old version even after a `uv tool install --force` upgrade. Fix: install the updated wheel into the active pyenv Python (`pyenv which python` → note the Python, then install via that Python's `pip`) **or** install the wheel via `uv tool install --force` and then also copy/link it inside the pyenv environment. See Step 1 for full upgrade instructions.
+
+> **Stale `pipeline` block in `--json status`**: The `pipeline.stages` section in `dev-stack --json status` reflects the *most recent pipeline run* stored on disk — it is not a live health check. Stale warnings (e.g., `infra-sync: warn`) may linger from a previous run and no longer apply. For current stage state, always run `dev-stack --json pipeline run --stage <stage>` directly rather than relying on the cached result.
 
 The dry-run output includes:
 - `modules_added` — new modules in `DEFAULT_GREENFIELD_MODULES` not yet in the manifest
@@ -234,6 +243,26 @@ dev-stack --json status    # cross-check: are any modules healthy: false?
 ```
 If `status` shows unhealthy modules despite the no-op, see "Status unhealthy but update is a no-op" below.
 
+### Package version bumped but update is still a no-op — module VERSION constants not bumped
+
+This happens when `pyproject.toml` was bumped (e.g., `0.1.0` → `1.0.0`) but the per-module `VERSION = "..."` constants inside `src/dev_stack/modules/*.py` were **not** updated. `dev-stack update` diffs those module-level constants against the versions stored in `dev-stack.toml`, not the package version — so the delta is empty and nothing is regenerated.
+
+**Diagnosis:**
+```bash
+dev-stack --version           # shows the new version, e.g. 1.0.0
+dev-stack --dry-run update    # reports "No modules require updates" — this is the tell
+
+# Check module constants in the dev-stack source
+find ~/.local/share/uv/tools/dev-stack ~/.pyenv -path '*/dev_stack*.dist-info/direct_url.json' \
+  -exec cat {} + 2>/dev/null  # note the source path
+grep -R 'VERSION\s*=' /path/to/dev-stack-source/src/dev_stack/modules/*.py
+```
+If those constants are still the old version (e.g., `0.1.x`) while `dev-stack --version` shows `1.0.0`, this is the cause.
+
+**Fix (repo side):** Use the template-copy approach from ["Status unhealthy but update is a no-op"](#status-unhealthy-but-update-is-a-no-op-template-drift) to manually refresh files you know changed. This unblocks the repo without waiting for a dev-stack patch.
+
+**Fix (dev-stack side — file a bug):** Module `VERSION` constants must be kept in sync with the package version on every release, or derived from the package version dynamically.
+
 ### Hook checksums still show `modified: true` after update
 A locally edited hook was skipped during conflict resolution. Force-overwrite:
 ```bash
@@ -257,6 +286,8 @@ uv sync
 | `security` | New `detect-secrets` plugin or `pip-audit` findings | Review findings; update `.secrets.baseline` with `detect-secrets scan > .secrets.baseline` |
 | `docs-api` | Sphinx conf updated | Check `docs/conf.py` diff; for brownfield `strict_docs = false` should already be set |
 | `infra-sync` | Drift from skipped conflict | Re-run `dev-stack update --force` for affected module |
+
+> **Misleading "missing tools" warning**: The message `"⚠ No substantive validation: lint, typecheck, test all skipped due to missing tools"` fires whenever those stages are absent from the current run — including when they were intentionally filtered via `--stage`. If you ran `--stage docs-api` (or any single-stage run) and see this warning, the tools are not actually missing; the stages were filtered out. Confirm tools are present with `uv run ruff --version && uv run mypy --version && uv run pytest --version`.
 
 ### New module install fails mid-update (partial state)
 ```bash
