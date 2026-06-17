@@ -25,6 +25,15 @@ End-to-end workflow: smart staging → atomic commit → pipeline resolution →
 
 ---
 
+## Mode Selection
+
+Decide the mode up front and state it in one line before starting:
+
+- **Full pipeline (default)** — Phases 0–10: stage → commit → pipeline resolution → rebase → PR → Copilot review loop → sync `main`. Use when shipping a change as a PR.
+- **Local-only** — Phases 0–4 only (context → branch safety → staging → TDD → commit → dev-stack pipeline resolution), then STOP. Use when the user says "just commit", "commit locally", passes `--local`, or no PR is wanted yet. Skip rebase/PR/review/sync.
+
+---
+
 ## Procedure
 
 ### Phase 0 — Context Assessment
@@ -43,6 +52,22 @@ Also check:
 - Is there a **constitution**? → check `.specify/memory/constitution.md` (also try `.specify/constitution.md`, `specs/constitution.md`)
 - Is there a **spec/task reference**? → check open specs in `specs/` or `.specify/memory/`
 - Note `Spec-Ref` and `Task-Ref` for the commit trailers (use `None` if not applicable)
+
+#### Branch safety — never commit to the default branch
+
+Before staging anything, make sure you are not on the default branch:
+
+```bash
+current="$(git branch --show-current)"
+if [ "$current" = "main" ] || [ "$current" = "master" ]; then
+  # dev-stack branch pattern requires one of:
+  #   feature/.+ | bugfix/.+ | hotfix/.+ | release/.+ | NNN-<slug>
+  git switch -c "feature/<short-slug>"   # slug derived from the change intent
+fi
+```
+
+Pick `<short-slug>` from the change (e.g. `feature/eval-first-sweep`). If already on a
+non-default branch, keep it. Do this **before** the first commit so nothing lands on `main`.
 
 ---
 
@@ -131,14 +156,39 @@ Follow [commit-format](./references/commit-format.md) for full format spec. Key 
 - Subject: `<type>(<scope>): <description>` — max 72 chars
 - Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
 - Body sections (in order): `## Intent`, `## Reasoning`, `## Scope`, `## Narrative`
-- Agent trailers: `Spec-Ref`, `Task-Ref`, `Agent`, `Pipeline`, `Edited`
-- Use `None` for `Spec-Ref` and `Task-Ref` when no spec/task applies
+- Trailers **you** write: `Spec-Ref`, `Task-Ref` (use `None` if N/A), `Agent`
+  (`claude`, `gh-copilot`, `cursor`, …), and — when an AI agent authored the change — a
+  `Co-Authored-By:` line for it (e.g. `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`).
+- Trailers the **dev-stack pipeline owns**: `Pipeline:` and `Edited:` are written/rewritten by
+  the stage-9 `commit-message` hook. Do **not** hand-compute them — leave them out and let the
+  pipeline add them. On non-dev-stack repos, omit them entirely.
 
 #### 3c. Execute the commit
 
+Always write the full message to a file and commit with `-F` — the `-m` flag mangles
+multi-section bodies and trailers:
+
 ```bash
-git commit -m "<subject>" -m "<body-with-sections>" -m "<trailers>"
-# — or use a temp file for multi-section messages:
+cat > /tmp/commit_msg.txt <<'EOF'
+<type>(<scope>): <subject>
+
+## Intent
+<why this change exists>
+
+## Reasoning
+<key decisions / trade-offs>
+
+## Scope
+- <files / components touched>
+
+## Narrative
+<3–5 sentences for future readers>
+
+Spec-Ref: None
+Task-Ref: None
+Agent: claude
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+EOF
 git commit -F /tmp/commit_msg.txt
 ```
 
@@ -332,13 +382,16 @@ git push origin --delete <feature-branch>        # delete remote branch
 ```
 [ ] git status / diff reviewed — know exactly what changed
 [ ] .gitignore updated for any untracked junk files
+[ ] On a feature branch, not main/master (branch-first)
 [ ] Changes form a single logical unit (atomic)
 [ ] Tests pass (pytest or equivalent)
 [ ] New behavior has test coverage
 [ ] Correct files staged (source + tests + config, no build artifacts/secrets)
+[ ] Commit message written to a file, committed with `git commit -F`
 [ ] Commit message: conventional subject ≤72 chars
 [ ] Commit message: Intent, Reasoning, Scope, Narrative sections present
-[ ] Commit message: Spec-Ref / Task-Ref trailers set (None if not applicable)
+[ ] Commit message: Spec-Ref / Task-Ref / Agent set; Co-Authored-By for AI author
+[ ] Pipeline:/Edited: left to the dev-stack commit-message stage (not hand-written)
 [ ] Pipeline ran: all HARD stages pass (dev-stack repos)
 [ ] Pipeline artifacts staged and folded into commit (dev-stack repos)
 [ ] Rebased on origin/main cleanly

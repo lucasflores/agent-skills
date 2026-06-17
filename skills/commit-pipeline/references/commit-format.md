@@ -59,23 +59,37 @@ the larger system.>
 
 ## Agent Trailers
 
-Append trailers after the body, preceded by a blank line. AI agent commits **must** include all trailers.
+Append trailers after the body, preceded by a blank line. Two groups:
+
+**You (the agent) write these:**
 
 ```
 Spec-Ref: specs/<id>/spec.md
 Task-Ref: specs/<id>/tasks.md
 Agent: <agent-name>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+```
+
+**The dev-stack pipeline owns these** — the stage-9 `commit-message` hook writes/rewrites them.
+Do NOT hand-compute them; leave them out and let the pipeline add them (omit entirely on
+non-dev-stack repos):
+
+```
 Pipeline: lint=pass,typecheck=pass,test=pass,security=pass,docs-api=pass,docs-narrative=skip,infra-sync=pass,visualize=skip,commit-message=pass
 Edited: false
 ```
 
-| Trailer | Value |
-|---|---|
-| `Spec-Ref` | Path to spec file, or `None` |
-| `Task-Ref` | Path to tasks file, or `None` |
-| `Agent` | `gh-copilot`, `claude`, `cursor`, etc. |
-| `Pipeline` | Comma-separated `stage=status` pairs for all 9 stages |
-| `Edited` | `true` if a human edited the agent's commit message; `false` otherwise |
+| Trailer | Owner | Value |
+|---|---|---|
+| `Spec-Ref` | agent | Path to spec file, or `None` |
+| `Task-Ref` | agent | Path to tasks file, or `None` |
+| `Agent` | agent | `gh-copilot`, `claude`, `cursor`, etc. |
+| `Co-Authored-By` | agent | Identity of the AI author when an agent wrote the change |
+| `Pipeline` | dev-stack stage 9 | Comma-separated `stage=status` pairs for all 9 stages |
+| `Edited` | dev-stack stage 9 | `true` if a human edited the agent's commit message; `false` otherwise |
+
+Always commit multi-section messages with `git commit -F <file>` (never chained `-m` flags,
+which mangle the body/trailers).
 
 Human (manual) commits only need the subject line — body and trailers are optional but appreciated.
 
