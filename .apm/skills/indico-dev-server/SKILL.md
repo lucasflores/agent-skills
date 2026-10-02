@@ -43,15 +43,16 @@ Three virtualenvs — do NOT mix them:
 | Chainlit | `source ~/indico-assistant/plugin/chainlit_app/.venv/bin/activate` | `chainlit run` |
 | Eval | `source ~/indico-assistant/eval/.venv/bin/activate` | `indico-assistant-eval`, mlflow |
 
-Key env vars. The **web server and the Celery worker need all of these on every start**:
+Key env vars. The **web server and the Celery worker need all of these on every start**. They are set in
+one place, `scripts/stack-env.sh`, which both start blocks source:
 
 ```bash
-export INDICO_CONFIG='/Users/lucasflores/indico-assistant/instance/indico.conf'
-export CHAINLIT_AUTH_SECRET="$(cat ~/.config/indico-assistant/chainlit_auth.secret)"
-export ASSISTANT_NL2SQL_DATABASE_URI='postgresql://indico_assistant_ro@/indico'  # NL2SQL read-only role
-export VC_TEAMS_FAKE_GRAPH=1                    # Teams in fake mode (the default; see below)
-export INDICO_ASSISTANT_CONNECTOR_KEY="$(cat ~/.config/indico-assistant/connector.key)"  # never print it
+source <skill-dir>/scripts/stack-env.sh
 ```
+
+It exports `INDICO_CONFIG`, `ASSISTANT_NL2SQL_DATABASE_URI`, `CHAINLIT_AUTH_SECRET`,
+`INDICO_ASSISTANT_CONNECTOR_KEY` and `VC_TEAMS_FAKE_GRAPH=1`, and unsets `PYTHONPATH`. It returns 1, and exports
+nothing, if a secret file is missing or empty. Add a new required variable there, not to a start block.
 
 What each one is for:
 
@@ -60,8 +61,9 @@ What each one is for:
   `~/.config/indico-assistant/chainlit_auth.secret` (mode 600). This skill is published, so never write the value
   into it, and never echo it.
 - **`INDICO_ASSISTANT_CONNECTOR_KEY`**: the GitHub connector (spec 023) is on, with a real app, and Lucas (user 1)
-  is really connected. The key file is mode 600. Export it with the `$(cat …)` above; never echo it, log it or
-  write it into a file or a skill. Without it, GitHub breaks for connected users.
+  is really connected. The key file `~/.config/indico-assistant/connector.key` is mode 600, and `stack-env.sh`
+  reads it; never echo it, log it or write it into a file or a skill. Without it, GitHub breaks for connected
+  users.
 - **`VC_TEAMS_FAKE_GRAPH=1`**: Microsoft Graph is simulated, and the dev stack creates no real Teams meetings.
   Real mode, only when Lucas asks: drop the flag and `source ~/indico-assistant/instance/teams.env` (it sets
   `VC_TEAMS_CLIENT_ID`, `VC_TEAMS_CLIENT_SECRET` and `VC_TEAMS_TENANT_ID`). Then chat actions create real
@@ -81,11 +83,7 @@ Start them in the order listed (core → assistant → worker).
 ### 1. Indico Web Server (required)
 
 ```bash
-export INDICO_CONFIG='/Users/lucasflores/indico-assistant/instance/indico.conf'
-export ASSISTANT_NL2SQL_DATABASE_URI='postgresql://indico_assistant_ro@/indico'
-export CHAINLIT_AUTH_SECRET="$(cat ~/.config/indico-assistant/chainlit_auth.secret)"
-export VC_TEAMS_FAKE_GRAPH=1
-export INDICO_ASSISTANT_CONNECTOR_KEY="$(cat ~/.config/indico-assistant/connector.key)"
+source <skill-dir>/scripts/stack-env.sh
 source ~/indico-assistant/instance/env/bin/activate
 cd ~ && indico run -h 127.0.0.1 -q --enable-evalex
 ```
@@ -119,12 +117,8 @@ changing the panel's JS or CSS (its version hash is cached).
 ### 3. Celery Worker (chat answers, background tasks, attachment indexing) — required for chat
 
 ```bash
+source <skill-dir>/scripts/stack-env.sh
 source ~/indico-assistant/instance/env/bin/activate
-export INDICO_CONFIG='/Users/lucasflores/indico-assistant/instance/indico.conf'
-export ASSISTANT_NL2SQL_DATABASE_URI='postgresql://indico_assistant_ro@/indico'
-export CHAINLIT_AUTH_SECRET="$(cat ~/.config/indico-assistant/chainlit_auth.secret)"
-export VC_TEAMS_FAKE_GRAPH=1
-export INDICO_ASSISTANT_CONNECTOR_KEY="$(cat ~/.config/indico-assistant/connector.key)"
 cd ~ && indico celery worker --pool=solo -Q celery,assistant,assistant_bulk,teams_notes
 ```
 
@@ -194,21 +188,24 @@ pkill -f 'indico run'; pkill -f 'chainlit run'; pkill -f 'celery.*worker'
 
 Kill then start the target component. For full restart, kill all, then start in order.
 
-After any restart, check that each process has the variables it needs. The command below prints their names and
-the code path, never their values:
+After any restart, check that each process has the variables it needs. The command below prints the names of
+the ones set to a non-empty value, the code path and `PYTHONPATH`, never a secret's value. The bracketed first
+letters keep `pgrep` from matching the shell running the loop. The `case` skips any shell that launched a
+component (`zsh -c … chainlit run …`), whatever its path:
 
 ```bash
-for p in $(pgrep -f "indico run|celery.*worker|chainlit run"); do
-  case "$(ps -o command= -p $p)" in /bin/zsh*) continue;; esac
+for p in $(pgrep -f "[i]ndico run|[c]elery.*worker|[c]hainlit run"); do
+  case "$(ps -o comm= -p $p)" in *sh) continue;; esac
   env=$(ps eww -o command= -p $p | tr ' ' '\n')
   printf '%s %s cwd=%s PYTHONPATH=[%s] vars: %s\n' "$p" "$(ps -o command= -p $p | sed 's|.*/bin/||' | cut -c1-24)" \
     "$(lsof -a -p $p -d cwd -Fn | grep ^n | cut -c2-)" "$(echo "$env" | grep ^PYTHONPATH= | cut -c12-)" \
-    "$(echo "$env" | grep -oE '^(CHAINLIT_AUTH_SECRET|INDICO_ASSISTANT_CONNECTOR_KEY|VC_TEAMS_FAKE_GRAPH|ASSISTANT_NL2SQL_DATABASE_URI)=' | tr -d '=' | tr '\n' ' ')"
+    "$(echo "$env" | grep -oE '^(CHAINLIT_AUTH_SECRET|INDICO_ASSISTANT_CONNECTOR_KEY|VC_TEAMS_FAKE_GRAPH|ASSISTANT_NL2SQL_DATABASE_URI)=.' | cut -d= -f1 | tr '\n' ' ')"
 done
 ```
 
 On the web server and the worker, expect all four names, an empty `PYTHONPATH`, and the main checkout on
-`origin/main` (`git -C ~/indico-assistant/plugin fetch && git -C ~/indico-assistant/plugin status -sb`).
+`origin/main` (`git -C ~/indico-assistant/plugin fetch && git -C ~/indico-assistant/plugin status -sb`). A name
+missing here is a variable that is unset or empty.
 
 ### Live checks from a worktree (the shared stack)
 
@@ -216,17 +213,21 @@ Other sessions use this stack. The plugin is installed editable from `~/indico-a
 worktree (`~/indico-assistant/plugin-<x>`) is not what runs. To run a branch for a live window:
 
 1. **Warn first.** Tell the other sessions on Indico before the window, and again after it (`ListAgents`, then
-   `SendMessage`). Don't switch the stack while someone else's window is open: look at
-   `ps eww … | grep PYTHONPATH` first.
+   `SendMessage`). Don't switch the stack while someone else's window is open. Run the variable check under
+   "Restarting" first: a non-empty `PYTHONPATH` on the web server or the worker means a window is open. Never
+   `grep` the raw `ps eww` output, which prints every variable's value, secrets included.
 2. **Back up, then migrate.** A branch with a new migration needs a `pg_dump` first (see "Upgrading" below). Then
    run `PYTHONPATH=<worktree> indico db --plugin assistant upgrade`.
-3. **Switch.** Start the web server and the worker with `PYTHONPATH=<worktree>` added to the variables above. It
-   wins over the editable install. Chainlit: run it from `<worktree>/chainlit_app` with
-   `~/indico-assistant/plugin/chainlit_app/.venv/bin/chainlit`, after copying `chainlit_app/.env` (it is
-   gitignored) into the worktree.
-4. **Restore.** Count what the rollback drops, then roll back any migration main doesn't have yet
-   (`printf 'YES\n' | … downgrade <previous>`). Restart all three from the main checkout with no `PYTHONPATH`,
-   run the variable check above, and tell the other sessions.
+3. **Switch.** Start the web server and the worker as above, with `export PYTHONPATH=<worktree>` after
+   `stack-env.sh` (which unsets it). It wins over the editable install. Chainlit: run it from
+   `<worktree>/chainlit_app` with `~/indico-assistant/plugin/chainlit_app/.venv/bin/chainlit`, after copying
+   `chainlit_app/.env` (it is gitignored) into the worktree.
+4. **Restore.** Count what the rollback drops. Then, before restarting anything from main, roll back any
+   migration main doesn't have yet, using the worktree's code: the revision exists only in the branch, so main's
+   code cannot find it.
+   `printf 'YES\n' | PYTHONPATH=<worktree> indico db --plugin assistant downgrade <previous>`.
+   Restart all three from the main checkout: `stack-env.sh` unsets `PYTHONPATH`. Run the variable check above,
+   and tell the other sessions.
 
 Tests need no stack: `python -m pytest`, run from the worktree, imports the worktree's code.
 
@@ -246,7 +247,7 @@ If down on macOS (Homebrew): `brew services start postgresql` / `brew services s
 Back up first, then run core and plugin migrations:
 
 ```bash
-pg_dump -Fc -d indico -f ~/indico-assistant/instance/backups/indico_$(date +%F).dump
+pg_dump -Fc -d indico -f ~/indico-assistant/instance/backups/indico_$(date +%F-%H%M%S).dump  # time too: a second dump that day must not replace the first
 source ~/indico-assistant/instance/env/bin/activate
 export INDICO_CONFIG='/Users/lucasflores/indico-assistant/instance/indico.conf'
 indico db upgrade
@@ -255,11 +256,13 @@ indico db --all-plugins upgrade
 
 ### Rebuilding the Indico venv
 
-This is an Intel Mac: newer torch / llvmlite / cryptography releases have no
-x86_64 macOS wheels, so these pins are required.
+These pins are what the current env runs. It was rebuilt for arm64 after the move from an Intel Mac, where
+newer torch / llvmlite / cryptography releases had no x86_64 wheels. Newer versions are untested here. Save
+the working versions first, so a failed rebuild can be undone:
 
 ```bash
 cd ~/indico-assistant/instance
+uv pip freeze --python env/bin/python > backups/env-freeze-$(date +%F-%H%M%S).txt
 uv venv --seed --python ~/.pyenv/versions/3.12.9/bin/python env
 uv pip install --python env/bin/python \
   'indico==3.3.13' indico-plugin-payment-manual indico-plugin-payment-paypal indico-plugin-vc-zoom \
