@@ -25,7 +25,7 @@ Parsing rules:
 
 You MUST pause ONLY for:
 1) Constitution input (if missing)
-2) SpecKit clarification questions
+2) SpecKit clarification questions (including the Core Mechanism Check in Phase 2)
 
 After clarification answers are provided, you MUST NOT pause again until implementation is complete — unless fundamentally blocked.
 
@@ -50,7 +50,7 @@ You MUST:
 - Keep output concise and high-signal.
 - Work consistently in both VS Code Copilot and Claude Code.
 
-During automated phases, do NOT produce explanatory commentary unless blocked.
+During automated phases, do NOT produce explanatory commentary unless blocked. A phase's defined output (for example `/speckit.analyze`'s report) is not commentary: print it.
 
 ---
 
@@ -266,6 +266,18 @@ Run:
 
 /speckit.clarify
 
+## Core Mechanism Check (before the first question)
+
+If the spec rests on a mechanism carried over from an earlier document (a scoring rule, a fitness, a pricing formula, an algorithm the spec text names but does not spell out), confirm it with the user BEFORE asking any question about its parameters. A merged document is not proof that its reader holds the mechanism it describes.
+
+Send this alone, before the clarification questions:
+
+1. State the mechanism as a formula, plus a small worked example with concrete numbers.
+2. Name the alternative the evidence rejected, and why (one line).
+3. Ask: "Does this match what you have in mind? Reply `Matches`, or describe your picture."
+
+Wait for the reply, even under `--auto-clarify`. If it does not match, rework the spec around the user's picture, then derive the clarification questions from the reworked spec. Skip this check when the spec introduces no such mechanism.
+
 ## Clarify UX Contract
 
 ### 1) Batching & Brevity
@@ -412,7 +424,7 @@ Then you MUST run `/speckit.analyze` before any implementation.
 
 Each analyze iteration consists of two steps:
 
-**Step A — `/speckit.analyze`:** Run the command and collect findings.
+**Step A — `/speckit.analyze`:** Run the command and print its report exactly as the command defines it: the findings table with IDs, the coverage table, and the metrics. Print it before any fix. Analyze is read-only; its report is the evidence that the gate ran.
 
 **Step B — Multi-Perspective Check:** Review the plan/tasks from three perspectives:
 
@@ -420,7 +432,9 @@ Each analyze iteration consists of two steps:
 2. **Performance** — Are data access patterns efficient? Are caching/pagination tasks present where implied?
 3. **UX** (skip for backend-only / CLI-only specs) — Are error states, loading states, and edge cases covered?
 
-Combine all findings from Step A and Step B into a single fix pass. Fix SPEC ARTIFACTS ONLY (do NOT modify production/source code). Then start the next iteration.
+Combine all findings from Step A and Step B into a single fix pass. Fix SPEC ARTIFACTS ONLY (do NOT modify production/source code). The fix pass names each finding ID it resolved (one short line per ID). Then start the next iteration.
+
+A gate whose report was not shown counts as not run. This applies to `/speckit.checklist` and to every analyze iteration: never fold a validation step into "fixed some things".
 
 Repeat until `/speckit.analyze` is clean AND no multi-perspective issues remain.
 
@@ -443,20 +457,22 @@ After spec quality gates pass and BEFORE implementation begins:
    - Repository root
    - Immediate subdirectories (1 level below root) that will contain code based on the planned tasks (e.g., `server/`, `frontend/`, `api/`, `web/`)
 
-2) If NO `agents.md` exists at the root, create one at the repository root.
+2) Decide whether to write files at all. Create `agents.md` files ONLY when the code repo (where the tasks write code) is the Spec Kit root (the directory holding `.specify/`), or the user opted in (in the spec text, a clarification answer, or the constitution). Otherwise do NOT create any `agents.md`: list the rules you would have written in the Final Completion Summary, follow them for this run, and leave the repo untouched. In a repo other people work in, a new governance file changes every session there; that is the owners' decision, not a side effect of one feature.
 
-3) For each immediate subdirectory (1 level below root) that the planned tasks will create or modify substantially AND that does not already have its own `agents.md`, create a scoped `agents.md` for that directory.
+3) If creating, and NO `agents.md` exists at the root, create one at the repository root.
 
-4) Do NOT create `agents.md` files deeper than 1 level below root.
+4) If creating, for each immediate subdirectory (1 level below root) that the planned tasks will create or modify substantially AND that does not already have its own `agents.md`, create a scoped `agents.md` for that directory.
 
-5) Content rules for generated `agents.md` files:
+5) Do NOT create `agents.md` files deeper than 1 level below root.
+
+6) Content rules for generated `agents.md` files:
    - Derive from constitution, codebase conventions, and the approved plan/tasks. Keep concise (bullets).
    - Cover: language/framework versions, file structure, naming conventions, testing patterns, import/export style, error handling, domain constraints.
    - Root `agents.md`: broad project-wide rules. Scoped (e.g., `server/agents.md`): area-specific rules.
 
-6) If `agents.md` files already exist, do NOT modify them.
+7) If `agents.md` files already exist, do NOT modify them.
 
-These files are now part of the repository governance and MUST be respected by the implementation phase (per the Repository Governance rules).
+Any files created are now part of the repository governance and MUST be respected by the implementation phase (per the Repository Governance rules).
 
 ---
 
@@ -467,6 +483,8 @@ Run:
 /speckit.implement
 
 Implement tasks strictly in order.
+
+**Ignore files (overrides `/speckit.implement`'s ignore-file step; do not edit the Spec Kit command file itself):** verify the ignore files that step lists and report the missing ones in the Final Completion Summary. Create one only when this feature introduces the technology that needs it (for example, the feature adds the first Dockerfile). Do not append patterns to an existing ignore file unless they cover files this feature adds. Ignore files change how everyone's builds behave; a feature branch does not get to change them on the side.
 
 Do NOT:
 - Add features beyond tasks.
@@ -512,6 +530,10 @@ Optional (max 3 short lines):
 - Tasks generated: <N>
 - Issues auto-fixed: <N>
 - Files changed: <N>
+
+Required when they apply (not counted in the 3 lines above):
+- Proposed `agents.md` rules, when the files were not created (see Pre-Implementation).
+- Missing ignore files that were not created (see Phase 6).
 
 After printing this summary, write the run audit log (see below), then STOP.
 
