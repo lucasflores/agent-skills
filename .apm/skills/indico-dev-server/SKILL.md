@@ -129,6 +129,17 @@ returns 202 + `job_id`, and the client polls `/api/assistant/chat/jobs/<job_id>`
 
 **Restarts:** the worker does not reload code, so restart it after plugin changes.
 
+**No time limits:** `--pool=solo` enforces no Celery time limit, so a task stuck on the database hangs the worker,
+and anything waiting on it, indefinitely. Don't wait it out. Look in `pg_stat_activity` for a worker connection
+that is `idle in transaction` while another connection from the same worker waits on a `Lock`:
+
+```bash
+psql -d indico -c "select pid, state, wait_event_type, wait_event, now() - xact_start as xact_age, left(query, 60)
+  from pg_stat_activity where datname = 'indico' and (state = 'idle in transaction' or wait_event_type = 'Lock')"
+```
+
+Clear it with `select pg_terminate_backend(<pid>)` on the idle-in-transaction connection, then restart the worker.
+
 ## Operations
 
 ### Health Check
@@ -141,6 +152,8 @@ bash <skill-dir>/scripts/health_check.sh --indico  # just indico web
 ```
 
 Flags: `--all`, `--indico`, `--chainlit`, `--celery`, `--postgres`, `--redis`. It exits 1 if any check fails.
+The Celery check reads each worker's command line and fails, naming the queues, if a worker is not on all of
+`celery,assistant,assistant_bulk,teams_notes`: a worker without them is running, but chat stays "pending".
 
 ### Calling Indico with curl
 
@@ -210,7 +223,14 @@ missing here is a variable that is unset or empty.
 ### Live checks from a worktree (the shared stack)
 
 Other sessions use this stack. The plugin is installed editable from `~/indico-assistant/plugin`, so a feature
-worktree (`~/indico-assistant/plugin-<x>`) is not what runs. To run a branch for a live window:
+worktree (`~/indico-assistant/plugin-<x>`) is not what runs.
+
+Branch work happens in a worktree (`~/indico-assistant/plugin-<x>`). The main checkout stays on `main`, because the
+running web server reloads whatever is checked out there, while the worker (no reloader) keeps the old code: a
+branch checked out in the main checkout puts unmerged code in front of every session, and web and worker run
+different code.
+
+To run a branch for a live window:
 
 1. **Warn first.** Tell the other sessions on Indico before the window, and again after it (`ListAgents`, then
    `SendMessage`). Don't switch the stack while someone else's window is open. Run the variable check under
@@ -219,9 +239,18 @@ worktree (`~/indico-assistant/plugin-<x>`) is not what runs. To run a branch for
 2. **Back up, then migrate.** A branch with a new migration needs a `pg_dump` first (see "Upgrading" below). Then
    run `PYTHONPATH=<worktree> indico db --plugin assistant upgrade`.
 3. **Switch.** Start the web server and the worker as above, with `export PYTHONPATH=<worktree>` after
-   `stack-env.sh` (which unsets it). It wins over the editable install. Chainlit: run it from
+   `stack-env.sh` (which unsets it). It wins over the editable install. Start the web server with the reloader
+   off: `indico run -h 127.0.0.1 -q --enable-evalex --reloader none`. The worktree is edited during the window,
+   and with the reloader on, any edit (even to a test file) restarts the server mid-run: a paid suite run then
+   dies part-way and writes no report. Instead, restart the web server and the worker on purpose after each code
+   change, so both run the same code. Chainlit: run it from
    `<worktree>/chainlit_app` with `~/indico-assistant/plugin/chainlit_app/.venv/bin/chainlit`, after copying
    `chainlit_app/.env` (it is gitignored) into the worktree.
+
+   Run any suite or paid run under `caffeinate -dims <command>` (macOS). A run can outlast the machine's wake
+   time; if the laptop sleeps, answers time out on wake and the run still exits 0 with scores that look like a
+   regression. After a long run, and before reading its scores, check the worker's log for silent hours and
+   `pmset -g log | awk '$4 == "Sleep" || $4 == "Wake"'` for a sleep during the run.
 4. **Restore.** Count what the rollback drops. Then, before restarting anything from main, roll back any
    migration main doesn't have yet, using the worktree's code: the revision exists only in the branch, so main's
    code cannot find it.
@@ -330,13 +359,13 @@ source .venv/bin/activate
 # Dry run (no DB, no LLM)
 indico-assistant-eval --dry-run
 
-# Live run (Indico + PostgreSQL must be up)
-indico-assistant-eval \
+# Live run (Indico + PostgreSQL must be up). The key goes in LLM_API_KEY, not --llm-api-key,
+# which would show it in `ps` for the whole run.
+LLM_API_KEY="$HF_TOKEN" indico-assistant-eval \
     --db-url postgresql://lucasflores@localhost/indico \
     --llm-provider openai \
     --llm-base-url https://router.huggingface.co/v1 \
     --llm-model meta-llama/Llama-3.3-70B-Instruct \
-    --llm-api-key $HF_TOKEN \
     --plugin-path ~/indico-assistant/plugin \
     --tag nightly
 ```

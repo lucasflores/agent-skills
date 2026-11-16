@@ -30,12 +30,29 @@ check_chainlit() {
   fi
 }
 
+# Chat needs the worker on all of these; a worker without them still "runs" while chat stays pending.
+CELERY_QUEUES="celery assistant assistant_bulk teams_notes"
+
 check_celery() {
-  if pgrep -f 'celery.*worker' >/dev/null 2>&1; then
-    ok "Celery worker process running (PID $(pgrep -f 'celery.*worker' | head -1))"
-  else
-    fail "No Celery worker process found"
-  fi
+  local pid cmd queues q missing found=0
+  for pid in $(pgrep -f 'celery.*worker' || true); do
+    case "$(ps -o comm= -p "$pid")" in *sh) continue;; esac  # skip a shell that launched the worker
+    cmd=$(ps -o command= -p "$pid") || continue
+    found=1
+    # No -Q means Celery's default queue only
+    queues=$(printf '%s\n' "$cmd" | grep -oE -- '(-Q|--queues)[ =][^ ]+' | sed -E 's/^(-Q|--queues)[ =]//' | tr ',' ' ' || true)
+    queues=" ${queues:-celery} "
+    missing=""
+    for q in $CELERY_QUEUES; do
+      case "$queues" in *" $q "*) ;; *) missing="$missing $q";; esac
+    done
+    if [ -z "$missing" ]; then
+      ok "Celery worker running on all queues (PID $pid)"
+    else
+      fail "Celery worker PID $pid is missing queue(s):$missing (start it with -Q celery,assistant,assistant_bulk,teams_notes)"
+    fi
+  done
+  [ "$found" -eq 1 ] || fail "No Celery worker process found"
 }
 
 check_postgres() {
